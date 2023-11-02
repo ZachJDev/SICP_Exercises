@@ -17,3 +17,4 @@
 ((sum2 1 3) square)
 ((sum2 1 ((sum2 1 3) square)) (lambda (x) x))
 (sum (lambda (x) x) 1 14)
+

@@ -1,2 +1,3 @@
 exercises/*/*\.scm~
 obj.scm
+*.bak
