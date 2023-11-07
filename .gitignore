@@ -1,3 +1,4 @@
+exercises/*/*\.rkt~
 exercises/*/*\.scm~
 obj.scm
 *.bak
