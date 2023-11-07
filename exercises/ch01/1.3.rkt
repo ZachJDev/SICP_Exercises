@@ -80,6 +80,13 @@
       1
       (* (f a) (product f (next a) b next))))
 
+(define (product-iter f a b next)
+  (define (iter acc cur)
+    (if (> cur  b)
+        acc
+        (iter (* acc (f cur)) (next cur))))
+  (iter 1 a))
+
 (define (factorial x)
   (product identity 1 x inc))
 
@@ -94,6 +101,55 @@
     4.0))
 
 (pi-comp 9000)
+
+; EXERCISE 1.32
+
+(define (accumulate combiner null-value f a b next)
+  (if (> a b)
+      null-value
+      (combiner (f a) (accumulate combiner null-value f (next a) b next) )))
+
+(define (accumulate-iter combiner null-value f a b next)
+  (define (iter acc cur)
+    (if (> cur b)
+        acc
+        (iter (combiner acc (f cur)) (next cur))))
+  (iter null-value a))
+
+(define (sum-acc f a b next)
+  (accumulate + 0 f a b next))
+
+(define (sum-acc-iter f a b next)
+  (accumulate-iter + 0 f a b next))
+
+; (sum-acc-iter identity 1 5 inc)
+
+; EXERCISE 1.33
+
+(define (filtered-accumulate combiner null-value f a b next predicate?)
+  (define (recurs-helper x)
+    (cond ((> x b) null-value)
+          ((predicate? x) (combiner (f x) (recurs-helper (next x))))
+          (else (combiner null-value (recurs-helper (next x))))))
+  (recurs-helper a))
+
+; (filtered-accumulate + 0 square 1 6 inc prime?)
+
+(define (sum-of-relative-primes-to x)
+  (define (is-relative-prime y) (= 1 (gcd x y)))
+  (filtered-accumulate + 0 identity 1 x inc is-relative-prime))
+
+(sum-of-relative-primes-to 11)
+(sum-acc identity 1 11 inc)
+
+; EXERCISE 1.34
+
+; My guess is that we'd get an error related to the fact that 2 is not a procedure, and we can't call it.
+
+;(define (f g)
+ ; (g 2))
+
+;(f f) I was right!
 
 ; let vs lambda
 
@@ -216,5 +272,3 @@
       (compose f (repeated f (- times 1)))))
 
 ((repeated square 2) 5)
-    
-    
