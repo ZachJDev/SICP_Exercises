@@ -272,3 +272,28 @@
       (compose f (repeated f (- times 1)))))
 
 ((repeated square 2) 5)
+
+; Exercise 1.46
+
+(define (iterative-improve good-enough? improve)
+  (lambda (guess)
+    (define (iter x)
+      (if (good-enough? x)
+          x
+          (iter (improve x))))
+    (iter guess)))
+
+; ((iterative-improve (lambda (x) (= x 1)) (lambda (x) (- x 1))) 5)
+
+(define (sqrt2 x)
+  ((iterative-improve (lambda (guess)
+                       (< (abs (- (square guess) x)) 0.00001))
+                     (lambda (guess)
+                       (average guess (/ x guess)))) (* x 1.0))) ; Force decimal number
+(define (fixed-point-iter-improve f first-guess)
+  ((iterative-improve (lambda (guess)
+                        (< (abs (- (f guess) guess)) 0.00001))
+                      (lambda (guess) (f guess))) first-guess))
+
+(fixed-point cos 1.0)
+(fixed-point-iter-improve cos 1.0)
