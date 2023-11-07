@@ -86,7 +86,7 @@
 ; (factorial 5)
 
 (define (double-inc x) (+ x 2))
-(define (double x) ( * 2 x))
+;(define (double x) ( * 2 x))
 
 (define (pi-comp x)
 (*  (/ (* 2 (product square 4 x double-inc))
@@ -94,3 +94,127 @@
     4.0))
 
 (pi-comp 9000)
+
+; let vs lambda
+
+(define (times-y x)
+  (let ((y (+ 15 3)))
+  (* x y)))
+
+(define (times-y2 x)
+   ((lambda (y)
+    (* x y))
+    (+ 15 3)))
+
+(times-y 4)
+(times-y2 4)
+
+; 1.3.3 Procedures as General Methods
+
+; Half-interval Method
+
+(define (average a b) (/ (+ a b) 2))
+(define (close-enough? a b) (< (abs (- a b)) 0.00001))
+
+(define (search f neg-point pos-point)
+  (let ((midpoint (average neg-point pos-point)))
+    (if (close-enough? neg-point pos-point)
+        midpoint
+        (let ((test-value (f midpoint)))
+          (cond ((positive? test-value)
+                 (search f neg-point midpoint))
+                ((negative? test-value)
+                 (search f midpoint pos-point))
+                (else midpoint))))))
+
+(define (half-interval-method f a b)
+  (let ((a-value (f a))
+        (b-value (f b)))
+    (cond ((and (negative? a-value) (positive? b-value))
+           (search f a b))
+          ((and (negative? b-value) (positive? a-value))
+           (search f b a))
+          (else (error "Values are not of opposite signs:" a b)))))
+
+; (half-interval-method sin 2.0 4.0)
+
+; (half-interval-method (lambda (x) (- (* x x x) (* 2 x) 3)) 1.0 2.0)
+
+; Fixed Points
+
+(define tolerance 0.00001)
+
+(define (fixed-point f first-guess)
+  (define (close-enough? v1 v2)
+    (< (abs (- v1 v2)) tolerance))
+  (define (try guess)
+    (let ((next (f guess)))
+    (if (close-enough? next guess)
+        guess
+        (try next))))
+  (try first-guess))
+
+(fixed-point cos 1.0)
+
+(define (average-damp f)
+  (lambda (x) (average x (f x))))
+
+(define (sqrt x)
+  (fixed-point (average-damp (lambda (y) (/ x y)))
+               1.0))
+
+(define (cube-root x)
+  (fixed-point (average-damp (lambda (y) (/ x (square y))))
+               1.0))
+
+; NEWTON's METHOD
+
+(define dx 0.00001)
+
+(define (deriv g)
+  (lambda (x)
+    (/  (- (g (+ x dx)) (g x))
+        dx)))
+
+(define (cube x) (* x x x))
+
+; ((deriv cube) 5)
+
+; ((deriv (deriv cube)) 5)
+
+(define (newton-transform g)
+  (lambda (x)
+    (- x (/ (g x) ((deriv g) x)))))
+
+(define (newton-method g guess)
+  (fixed-point (newton-transform g) guess))
+
+(define (fixed-point-of-transform g transform guess)
+  (fixed-point (transform g) guess))
+
+; EXERCISE 1.40
+
+(define (cubic a b c)
+  (lambda (x)
+  (+ (* x x x) (* a (* x x)) (* b x) c)))
+
+; EXERCISE 1.41
+
+(define (double f)
+  (lambda (x) (f (f x))))
+
+; EXERCISE 1.42
+
+(define (compose f g)
+  (lambda (x) (f (g x))))
+
+; EXERCISE 1.43
+
+(define (repeated f times)
+  (if (< times 1)
+      (lambda (x) x)
+      (compose f (repeated f (- times 1)))))
+
+((repeated square 2) 5)
+    
+    
