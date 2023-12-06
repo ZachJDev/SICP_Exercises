@@ -223,6 +223,44 @@
   (fixed-point (average-damp (lambda (y) (/ x (square y))))
                1.0))
 
+; EXERCISE 1.35
+
+(define (golden-ratio)
+  (fixed-point (lambda (x) (+ 1 (/ 1 x))) 1.0))
+
+(golden-ratio)
+
+; Exercise 1.37
+
+(define (cont-fraction-recurse n d k)
+  (if (= k 1)
+      (n 1)
+      (/ (n k) (+ (d k) (cont-fraction-recurse n d (- k 1))))))
+
+(define (cont-fraction-iterative n d k)
+  (define (cont-frac num denom)
+    (+ (d (- k 1))
+       (/ num denom)))
+  (define (iter acc l)
+    (if (= l 1)
+        (/ (n 1) acc)
+           (iter (cont-frac (n k) acc) (- l 1))))
+  (iter (cont-frac (n k) (d k)) k))
+
+    
+
+(cont-fraction-recurse
+ (lambda (i) 1.0)
+ (lambda (i) 1.0)
+ 14)
+(cont-fraction-iterative
+ (lambda (i) 1.0)
+ (lambda (i) 1.0)
+ 50)
+
+; EXERCISE 1.38
+
+
 ; NEWTON's METHOD
 
 (define dx 0.00001)

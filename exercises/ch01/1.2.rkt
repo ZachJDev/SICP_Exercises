@@ -11,5 +11,5 @@
         (else (iter b (- n 1) (* a b)))))
  (iter x exp 1))
 
-(exp-iter 3 5)
-        
+;(exp-iter 3 5)
+
