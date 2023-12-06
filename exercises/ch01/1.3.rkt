@@ -100,7 +100,7 @@
      (* (+ 1 x) (product square 3 x double-inc)))
     4.0))
 
-(pi-comp 9000)
+;(pi-comp 9000)
 
 ; EXERCISE 1.32
 
@@ -139,8 +139,8 @@
   (define (is-relative-prime y) (= 1 (gcd x y)))
   (filtered-accumulate + 0 identity 1 x inc is-relative-prime))
 
-(sum-of-relative-primes-to 11)
-(sum-acc identity 1 11 inc)
+;(sum-of-relative-primes-to 11)
+;(sum-acc identity 1 11 inc)
 
 ; EXERCISE 1.34
 
@@ -162,8 +162,8 @@
     (* x y))
     (+ 15 3)))
 
-(times-y 4)
-(times-y2 4)
+;(times-y 4)
+;(times-y2 4)
 
 ; 1.3.3 Procedures as General Methods
 
@@ -210,7 +210,7 @@
         (try next))))
   (try first-guess))
 
-(fixed-point cos 1.0)
+;(fixed-point cos 1.0)
 
 (define (average-damp f)
   (lambda (x) (average x (f x))))
@@ -228,38 +228,53 @@
 (define (golden-ratio)
   (fixed-point (lambda (x) (+ 1 (/ 1 x))) 1.0))
 
-(golden-ratio)
+;(golden-ratio)
 
 ; Exercise 1.37
 
-(define (cont-fraction-recurse n d k)
-  (if (= k 1)
-      (n 1)
-      (/ (n k) (+ (d k) (cont-fraction-recurse n d (- k 1))))))
+(define (cont-fraction-recursive n d k)
+  (define (recurse l)
+    (if (= l k)
+        (/ (n l) (d l))
+        (/ (n l) (+ (d l) (recurse (+ l 1))))))
+  (recurse 1))
+        
+      
+                                    
 
 (define (cont-fraction-iterative n d k)
-  (define (cont-frac num denom)
-    (+ (d (- k 1))
+  (define (cont-frac num denom l)
+    (+ (d (- l 1))
        (/ num denom)))
+  
   (define (iter acc l)
     (if (= l 1)
         (/ (n 1) acc)
-           (iter (cont-frac (n k) acc) (- l 1))))
-  (iter (cont-frac (n k) (d k)) k))
+           (iter (cont-frac (n k) acc l) (- l 1))))
+  
+  (iter (cont-frac (n k) (d k) k) k))
 
     
 
-(cont-fraction-recurse
- (lambda (i) 1.0)
- (lambda (i) 1.0)
- 14)
-(cont-fraction-iterative
- (lambda (i) 1.0)
- (lambda (i) 1.0)
- 50)
+;(cont-fraction-recurse (lambda (i) 1.0) (lambda (i) 1.0) 14)
+;(cont-fraction-iterative (lambda (i) 1.0) (lambda (i) 1.0) 50)
 
 ; EXERCISE 1.38
 
+(define (euler-expansion i)
+          (cond ((= i 1) 1)
+                ((= i 2) 2)
+                ((= 0 (remainder (- i 2) 3))
+                 (+ 2 (* 2 (/ (- i 2) 3))))
+                (else 1)))
+
+(define (apprx-e)
+  (+ 2 (cont-fraction-recursive
+   (lambda (i) 1.0)
+   euler-expansion
+   100)))
+
+(apprx-e)
 
 ; NEWTON's METHOD
 
@@ -309,7 +324,7 @@
       (lambda (x) x)
       (compose f (repeated f (- times 1)))))
 
-((repeated square 2) 5)
+;((repeated square 2) 5)
 
 ; Exercise 1.46
 
@@ -333,5 +348,5 @@
                         (< (abs (- (f guess) guess)) 0.00001))
                       (lambda (guess) (f guess))) first-guess))
 
-(fixed-point cos 1.0)
-(fixed-point-iter-improve cos 1.0)
+;(fixed-point cos 1.0)
+;(fixed-point-iter-improve cos 1.0)
