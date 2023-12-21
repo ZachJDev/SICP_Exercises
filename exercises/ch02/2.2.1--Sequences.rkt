@@ -39,3 +39,37 @@
   (helper rest))
 
 ; Mapping Over Lists
+
+; EXERCISE 2.22
+; This first  example is a good way to show the technique of building a list, then reversing it.
+(define (square x) (* x x ))
+
+(define (square-list items)
+  (define (iter things answer)
+    (if (null? things)
+    answer
+    (iter (cdr things)
+          (cons (square (car things))
+                answer)))) ; The first element will be the first thing added to answer. and the next will be cons'd to that, all the way to the front.
+  (iter items nil))
+
+(define (square-list2 items)
+  (define (iter things answer)
+    (if (null? things)
+        answer
+        (iter (cdr things)
+              (cons answer ; The initial answer is nil, so that will be added to the second-to-last element of the list. Additionally,  our list will be mal-formed, as it won't end with a nil.
+                    (square (car things))))))
+  (iter items nil))
+
+;The right way to define the recursive iter call in the first version would be:
+;(iter (cdr things) (append answer (list (square (car things))))
+
+;EXERCISE 2.23
+
+(define (for-each proc list)
+  (if (null? list)
+      #t
+      (and (for-each proc (cdr list)) (proc (car list)))))
+
+(for-each (lambda (x) (newline) (display x)) (list 1 2 3 4 5))
