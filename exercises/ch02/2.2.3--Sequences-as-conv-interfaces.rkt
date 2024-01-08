@@ -42,6 +42,16 @@
 
 (define (matrix-*-vector m v)
     (map (lambda (mi) (dot-product v mi)) m))
-
+ 
 (define (transpose mat)
     (accumulate-n cons '() mat))
+
+(define (matrix-*-matrix m n)
+    (let ((cols (transpose n)))
+    (map (lambda (x) (matrix-*-vector cols x)) m)))
+
+(define (MM m n)
+(let ((cols (transpose n)))
+    (map (lambda (x)
+        (map (lambda (y)
+                (accumulate + 0 (map * y x))) cols)) m)))
