@@ -49,6 +49,9 @@
 (define (matrix-*-matrix m n)
     (let ((cols (transpose n)))
     (map (lambda (x) (matrix-*-vector cols x)) m)))
+    
+; This is the decomposed version of the above. What I had originally been trying to do
+; before realizing I just needed to multiply the cols matrix by the vectors of m.    
 
 (define (MM m n)
 (let ((cols (transpose n)))
