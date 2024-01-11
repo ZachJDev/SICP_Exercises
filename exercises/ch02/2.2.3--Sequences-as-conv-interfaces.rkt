@@ -1,5 +1,12 @@
 #lang sicp
 
+; from https://stackoverflow.com/questions/13791047/scheme-prime-numbers#13793084
+(define (prime? n)
+  (let loop ((d 2))
+    (cond ((< n (* d d)) #t)
+          ((zero? (modulo n d)) #f)
+          (else (loop (+ d 1))))))
+
 (define (square x) (* x x))
 
 (define (filter predicate seq)
@@ -58,3 +65,51 @@
     (map (lambda (x)
         (map (lambda (y)
                 (accumulate + 0 (map * y x))) cols)) m)))
+
+
+; EXERCISE 2.37
+
+; For my own edification -- even though accumulate and fold-left look very similar
+; They are different because accumulate is recursive, and will await the result of the recursive call 
+; (which is itself the result of combining the elements to the right). And it will combine `initial` with the final element.
+; Because the function below iterates, we'll combine the elements from left to right, combining initial with
+; First element.
+; Note that fold-left could be written recursively and fold-right iteratively, I just think it's interesting
+; to note how similar the two functions look when written out.
+
+(define (fold-left op initial seq)
+    (define (iter result rest)
+        (if (null? rest) 
+            result
+            (iter (op result (car rest))
+                (cdr rest))))
+    (iter initial seq))
+
+; (fold-right / 1 (list 1 2 3)) == 1 / ( 2 / 3) = 3/2
+; (fold-left / 1 (list 1 2 3)) == (1/ 2) / 3 = 1/6
+; (fold-right list nil (list 1 2 3)) == (list 1 (list 2 (list 3 nil))) == (1 2 3) ; This is incorrect, I was treating `list` like `cons`.
+; (fold-left list nil (list 1 2 3)) == (list (list (list nil 1) 2) 3) == (((() 1) 2) 3)
+
+; (display (accumulate append '() (map (lambda(x) 
+;                 (map (lambda (y)
+;                     (list x y))
+;                     (enumerate-interval 1 (- x 1))))
+;                 (enumerate-interval 1 3))))
+
+
+; Nested loops like this will probably always? be nested map/filter/etc. functions
+
+(define (flatmap proc seq)
+    (accumulate append nil (map proc seq)))
+
+
+(define (prime-sum? pair)
+    (prime? (+ (car pair) (cadr pair))))
+
+(define (make-pair-sum pair)
+    (list (car pair) (cadr pair) (+ (car pair) (cadr pair))))
+
+(display (map make-pair-sum (filter prime-sum? (flatmap (lambda (x) (map (lambda (y)
+                     (list x y))
+                     (enumerate-interval 1 (- x 1)))) (enumerate-interval 1 3)))))
+
