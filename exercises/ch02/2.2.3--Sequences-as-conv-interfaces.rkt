@@ -113,3 +113,15 @@
                      (list x y))
                      (enumerate-interval 1 (- x 1)))) (enumerate-interval 1 3)))))
 
+
+; EXERCISE 2.54
+
+(define (equal? seq1 seq2)
+    (cond ((or (null? seq1) (null? seq2))
+            (eq? seq1 seq2))
+          ((and (list?  seq1) (list?  seq2))
+           (and (equal? (car seq1) (car seq2)) 
+                (equal? (cdr seq1) (cdr seq2))))
+          ((eq? seq1 seq2)
+               #t)
+          (else #f)))
