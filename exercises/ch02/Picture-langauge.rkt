@@ -40,6 +40,10 @@
 
 (define wave wave-painter)
 
+(define (draw-line segment1 segment2)
+  (display segment1)
+  (display segment2))
+
 (define wave2 (beside wave (flip-vert wave)))
 (define wave3 (below wave2 wave2))
 (define (flipped-pairs painter)
@@ -116,8 +120,8 @@
                  (ycor-vect v2)))))
 (define add-vect (x-vect +))
 (define sub-vect (x-vect -))
-(define (scale-vect vect s)
-  (make-vect (* (xcor-vect vect) s)
+(define (scale-vect s vect)
+  (make-vect2 (* (xcor-vect vect) s)
              (* (ycor-vect vect) s)))
         
 ; Exercise 2.47
@@ -131,7 +135,7 @@
 (define (edge1-1 frame)
   (car (edges1 frame)))
 (define (edge2-1 frame)
-  (cadr (edges1 frame)))
+  (cdr (edges1 frame)))
 
 (define (make-frame2 origin edge1 edge2)
   (cons origin (cons edge1 edge2)))
@@ -144,11 +148,102 @@
 (define (edge2-2 frame)
   (cdr (edges2 frame)))
 
-(define (frame-coord-map frame)
+
+ (define (frame-coord-map frame)
   (lambda (v)
     (add-vect
-    (origin-frame frame)
+    (origin1 frame)
      (add-vect (scale-vect (xcor-vect v)
-                          (edge1-frame frame))
+                          (edge1-1 frame))
              (scale-vect (ycor-vect v)
-                         (edge2-frame frame))))))
+                         (edge2-1 frame))))))
+
+(define (segments->>painter segment-list)
+  (lambda (frame)
+    (for-each
+     (lambda (segment)
+       (draw-line
+        ((frame-coord-map frame) (start-segment segment))
+        ((frame-coord-map frame) (end-segment segment))))
+     segment-list)))
+
+; EXERCISE 2.48
+(define (make-segment2 point1 point2)
+  (list point1 point2))
+(define (start-segment segment)
+  (car segment))
+(define (end-segment segment)
+  (cadr segment))
+
+; EXERCISE 2.49
+; implementign with the sicp-pict library-defined calls allows us to use the built in painter.
+(define outline-painter
+  (segments->painter (list (make-segment (make-vect 0 0) (make-vect 0 1))
+                           (make-segment (make-vect 0 1) (make-vect 1 1))
+                           (make-segment (make-vect 1 1) (make-vect 1 0))
+                           (make-segment (make-vect 1 0) (make-vect 0 0)))))
+
+(define x-painter
+  (segments->painter (list (make-segment (make-vect 1 0) (make-vect 0 1))
+                             (make-segment (make-vect 0 0) (make-vect 1 1)))))
+(define diamond-painter
+  (segments->painter (list (make-segment (make-vect 0.5 0) (make-vect 1 0.5))
+                             (make-segment (make-vect 1 0.5) (make-vect 0.5 1))
+                             (make-segment (make-vect 0.5 1) (make-vect 0 0.5))
+                             (make-segment (make-vect 0 0.5) (make-vect 0.5 0)))))
+
+(define (transform-painter2 painter origin corner1 corner2)
+  (lambda (frame)
+    (let ((m (frame-coord-map frame)))
+      (let ((new-origin (m origin)))
+        (painter (make-frame2 new-origin
+                              (sub-vect (m corner1) new-origin)
+                              (sub-vect (m corner2) new-origin)))))))
+
+(define (flip-vert2 painter)
+  (transform-painter painter
+                     (make-vect 0 1)
+                     (make-vect 1 1)
+                     (make-vect 0 0)))
+
+(define (shrink-to-upper-right painter)
+  (transform-painter2 painter
+                      (make-vect2 0.5 0.5)
+                      (make-vect2 0.5 1.0)
+                      (make-vect2 1.0 0.5)))
+
+(define (beside2 painter1 painter2)
+ (let ((split-point (make-vect 0.5 0.0)))
+   (let ((paint-left
+          (transform-painter painter1
+                             (make-vect2 0.0 0.0)
+                             split-point
+                             (make-vect2 0.0 1.0)))
+         (paint-right
+          (transform-painter painter2
+                             split-point
+                             (make-vect 1.0 0.0)
+                             (make-vect 0.5 1.0))))
+     (lambda (frame)
+       (paint-left frame)
+       (paint-right frame)))))
+
+(define (flip-horiz2 painter)
+  (transform-painter painter
+                     (make-vect 1 0)
+                     (make-vect 0 0)
+                     (make-vect 1 1)))
+(define (flip90cc painter)
+  (transform-painter painter
+                    (make-vect 1 0)
+                    (make-vect 1 1)
+                    (make-vect 0 0)))
+(define (flip180cc painter)
+  (flip90cc (flip90cc painter)))
+(define (flip270cc painter)
+  (flip90cc (flip180cc painter)))
+                   
+(paint wave)
+(paint (flip90cc wave))
+(paint (flip180cc wave))
+(paint (flip270cc wave))
