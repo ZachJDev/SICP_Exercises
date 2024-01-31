@@ -36,9 +36,15 @@
     (make-segment (make-vect 1 0.3)
                   (make-vect 0.6 0.5))
     (make-segment (make-vect 0.6 0.5)
-                  (make-vect 0.7 0)))))
+                  (make-vect 0.7 0))
+    (make-segment (make-vect 0.4 .83)
+                  (make-vect .45 .80))
+    (make-segment (make-vect 0.5 .83)
+                  (make-vect .45 .80)))))
 
 (define wave wave-painter)
+
+(paint wave)
 
 (define (draw-line segment1 segment2)
   (display segment1)
@@ -66,8 +72,8 @@
       painter
       (let ((up (up-split painter (- n 1)))
             (right (right-split painter (- n 1))))
-        (let ((top-left (beside up up))
-              (bottom-right (below right right))
+        (let ((top-left up)
+              (bottom-right right)
               (corner (corner-split painter (- n 1))))
           (beside (below painter top-left)
                   (below bottom-right corner))))))
@@ -87,13 +93,16 @@
 
 (define (square-of-four tl tr bl br)
   (lambda (painter)
-    (let ((top (beside (tl painter) (tr painter)))
-          (bottom (beside (bl painter) (br painter))))
+    (let ((top (beside  (br painter)  (bl painter)))
+          (bottom (beside  (tr painter)  (tl painter) )))
       (below bottom top))))
 
 (define (square-limit2 painter n)
   (let ((combine4 (square-of-four flip-horiz identity rotate180 flip-vert)))
     (combine4 (corner-split painter n))))
+
+(paint (square-limit wave 3))
+(paint (square-limit2 wave 3))
 
 ; EXERCISE 2.45
 (define (split d1 d2)
@@ -211,14 +220,14 @@
                       (make-vect2 0.5 0.5)
                       (make-vect2 0.5 1.0)
                       (make-vect2 1.0 0.5)))
-
+;Exercise 2.50
 (define (beside2 painter1 painter2)
  (let ((split-point (make-vect 0.5 0.0)))
    (let ((paint-left
           (transform-painter painter1
-                             (make-vect2 0.0 0.0)
+                             (make-vect 0.0 0.0)
                              split-point
-                             (make-vect2 0.0 1.0)))
+                             (make-vect 0.0 1.0)))
          (paint-right
           (transform-painter painter2
                              split-point
@@ -243,7 +252,31 @@
 (define (flip270cc painter)
   (flip90cc (flip180cc painter)))
                    
-(paint wave)
-(paint (flip90cc wave))
-(paint (flip180cc wave))
-(paint (flip270cc wave))
+;Exercise 2.51
+(define (below2 painter1 painter2)
+  (let ((split-point (make-vect 0 0.5)))
+    (let ((paint-top
+           (transform-painter painter1
+                              (make-vect 0.0 0.0)
+                              (make-vect 1 0)
+                              split-point))
+          (paint-bottom
+               (transform-painter painter2
+                        split-point
+                        (make-vect 0 1)
+                        (make-vect 1 0.5))))
+  (lambda (frame)
+    (paint-top frame)
+    (paint-bottom frame)))))
+
+(define (below3 painter1 painter2)
+  (flip90cc (beside2 (flip270cc painter1)
+           (flip270cc painter2))))
+
+
+
+
+
+
+
+  
