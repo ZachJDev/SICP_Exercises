@@ -58,10 +58,11 @@
     (else (error "Unknown op -- MAKE-FROM-REAL-IMAG" op))))
   dispatch)
 
-; EXERCISES 2.79/80
+; EXERCISES 2.79/80/83
 
 ; (define (equ? x y) (apply-generic 'equ? x y))
 ; (define (=zero? x) (apply-generic '=zero? x))
+; (define (raise x) (apply-generic 'raise x))
 
 ; in scheme-number:
 
@@ -69,6 +70,8 @@
 ;    (lambda (x y) (eq? x y)))
 ; (put '=zero? '(scheme-number)
 ;   (lambda (x) (= 0 x)))
+; (put-coercion 'raise '(scheme-number)
+;    (lambda (x) (make-rational x 1)))
 
 ; in rational-number:
 
@@ -78,6 +81,14 @@
 ;                       (eq? (denom x) (denom y))))) ; Assuming they're in simplest form, which it looks like make-rat does.
 ; (put '=zero? '(rational-number)
 ;   (lambda (x) (and (= 0 (numer x)) (not (= 0 (denom x))))))
+;
+; (put-coercion 'raise '(rational-number)
+;    (lambda (x) (make-real (/ (numer x) (denom x)))))
+
+; in real-number:
+
+; (put-coercion 'raise '(real-number)
+;    (lambda (x) (make-complex-from-real-imag x 0)))
 
 ; in complex-number:
 
