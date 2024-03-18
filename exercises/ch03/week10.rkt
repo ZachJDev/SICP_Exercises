@@ -49,6 +49,7 @@
 ; in order to actually serialize multiple calss.
 
 ; EXERCISE 3.44
+
 ; I think I may be missing something here, but it seems like one difference is that 
 ; Ben is not using the exported serializer like it was explained that users would need to do.
 ; But if we assume the procedures _are_ serialized, I don't see anything wrong with this solution.
