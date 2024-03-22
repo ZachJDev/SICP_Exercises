@@ -57,6 +57,12 @@
 (define (prime? n)
     (= n (smallest-divisor n)))
 
+(define (divisible? a b) (= 0 (remainder a b)))
+
+(define (first-n-of-stream stream n)
+    (cond ((= n 0) the-empty-stream)
+            (else (cons-stream (stream-car stream) (first-n-of-stream (stream-cdr stream) (- n 1))))))
+
 
 ; EXERCISE 3.50
 
@@ -89,15 +95,15 @@
 
 ; EXERCISE 3.52
 
-(define sum 0) ; sum == 0
- (define (accum x)
-    (set! sum (+ x sum))
-    sum) ; sum == 0
-(define seq (stream-map accum (stream-enumerate-interval 1 20))) ; sum == 1
-(define y (stream-filter even? seq)) ; sum == 1 XXX actually 6, see below
-(define z (stream-filter (lambda (x) (= (remainder x 5) 0)) seq)) ; sum == 10
+; (define sum 0) ; sum == 0
+;  (define (accum x)
+;     (set! sum (+ x sum))
+;     sum) ; sum == 0
+; (define seq (stream-map accum (stream-enumerate-interval 1 20))) ; sum == 1
+; (define y (stream-filter even? seq)) ; sum == 1 XXX actually 6, see below
+; (define z (stream-filter (lambda (x) (= (remainder x 5) 0)) seq)) ; sum == 10
 
-(stream-ref y 7) ; sum == 136, displays 136
+; (stream-ref y 7) ; sum == 136, displays 136
 
 ; (display-stream z) ; sum == 210, displays 10,15,45,55,105,120,190,210
 
@@ -109,5 +115,44 @@
 ; before we get any calls to (cons-stream) -- meaning that sum will get to six, the first even number
 ; in the first stream-filter call. STREAM-FILTER DOES NOT FITLER THE ENTIRE STREAM, which is what I had wrong at first.
 ; it only evaluates until it reaches an item that returns true.
+
+
+; Exercise 3.53
+
+; It is the same as the `double` stream -- it gives successive powers of two.
+
+; EXERCISE 3.54
+
+(define (mul-streams a b)
+    (stream-map2 * a b))
+
+
+(define (add-streams a b)
+    (stream-map2 + a b))
+
+(define ones (cons-stream 1 ones))
+
+(define integers (cons-stream 1 (add-streams ones integers)))
+
+(define factorials (cons-stream 1 (mul-streams integers factorials)))
+
+; EXERCISE 3.55
+
+(define (partial-sums stream)
+    (cons-stream (stream-car stream) 
+                 (add-streams (stream-cdr stream) (partial-sums stream))))
+
+                 
+; EXERCISE 3.56
+
+(define (merge s1 s2)
+    (cond ((stream-null? s1) s2)
+          ((stream-null? s2) s1)
+          (else
+            (let ((s1car (stream-car s1))
+                  (s2car (stream-car s2)))
+                (cond ((< s1car s2car) (cons-stream s1car (merge (stream-cdr s1) s2)))
+                      ((> s1car s2car) (cons-stream s2car (merge s1 (stream-cdr s2))))
+                      (else (cons-stream s1car (merge (stream-cdr s1) (stream-cdr s2)))))))))
 
 
