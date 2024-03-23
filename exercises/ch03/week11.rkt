@@ -156,3 +156,41 @@
                       (else (cons-stream s1car (merge (stream-cdr s1) (stream-cdr s2)))))))))
 
 
+;Exercise 3.66
+
+(define (interleave s1 s2)
+    (if (stream-null? s1)
+     s2
+     (cons-stream (stream-car s1)
+                    (interleave s2 (stream-cdr s1)))))
+
+(define (pairs s t)
+    (cons-stream (list (stream-car s) (stream-car t))
+    (interleave
+     (stream-map (lambda (x) (list (stream-car s) x)) (stream-cdr t))
+     (pairs (stream-cdr s) (stream-cdr t)))))
+
+(define int-pairs (pairs integers integers))
+
+(define prime-pairs (stream-filter (lambda (pair) (prime? (+ (car pair) (cadr pair)))) int-pairs))
+
+(define (stream-count-where fn stream)
+    (define (iter in-stream count)
+        (if (fn (stream-car in-stream))
+            count
+            (iter (stream-cdr in-stream) (+ 1 count))))
+    (iter stream 0))
+
+; For the stream (pairs integers integers), the number of pairs preceeding a pair (S T) is about (2^S * T)
+; In general, a list whose car is n occurs every 2^n pairs. I'm stuck on figuring out the actual formula
+; for any given pair.
+
+; EXERCISE 3.68
+
+; I think we'll get into an infinite loop because the call to interleave is not a special form,
+; It will keep trying to call (pairs) without stopping.
+
+(define (bad-pairs s t)
+(interleave (stream-map (lambda (x) (list (stream-car s) x)) t)
+            (bad-pairs (stream-cdr s) (stream-cdr t))))
+
