@@ -181,7 +181,7 @@
             (iter (stream-cdr in-stream) (+ 1 count))))
     (iter stream 0))
 
-; For the stream (pairs integers integers), the number of pairs preceeding a pair (S T) is about (2^S * T)
+; For the stream (pairs integers integers), the number of pairs preceeding a pair (S T) is about (2^S * (T-1))
 ; In general, a list whose car is n occurs every 2^n pairs. I'm stuck on figuring out the actual formula
 ; for any given pair.
 
@@ -194,3 +194,22 @@
 (interleave (stream-map (lambda (x) (list (stream-car s) x)) t)
             (bad-pairs (stream-cdr s) (stream-cdr t))))
 
+; Fraction Expansion
+
+(define (fract-stream nums)
+    (define (next-decimal divisor dividend)
+        (cond ((= 0 dividend) (cons-stream 0 (next-decimal divisor dividend)))
+              ((> divisor dividend) (next-decimal divisor (* dividend 10)))
+              (else (cons-stream (floor (/ dividend divisor)) (next-decimal  divisor (remainder dividend divisor))))))
+    
+    (let ((numer (car nums))
+          (denom (cadr nums)))
+        (next-decimal denom numer)))
+
+(define (stream-to-list s)
+    (if (null? s)
+        '()
+        (cons (stream-car s) (stream-to-list (stream-cdr s)))))
+
+(define (approximation s num)
+    (stream-to-list (first-n-of-stream s num)))
