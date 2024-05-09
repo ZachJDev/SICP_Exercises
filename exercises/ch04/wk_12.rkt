@@ -161,6 +161,172 @@
         (cons (eval (first-operand exp) env)
                 (list-of-values (rest-operands exp) env))))
 
+; DATA STRUCTURES
+
+(define (true? x)
+    (not (eq? x false)))
+
+(define (false? x)
+(eq? x false))
+
+; PROC DSs
+
+(define (make-procedure parameters body env)
+    (list 'procedure parameters body env))
+
+(define (compound-procedure? p)
+    (tagged-list? p 'procedure))
+
+(define (procedure-paramaters p) (cadr p))
+
+(define (procedure-body p) (caddr p))
+
+(define (procedure-environment p) (cadddr p))
+
+; ENVIRONMENT
+
+(define (enclosing-environment env) (cdr env))
+
+(define (first-frame env) (car env))
+
+(define the-empty-environment '())
+
+(define (make-frame variables values)
+    (cons variables values))
+
+(define (frame-variables frame) (car frame))
+
+(define (frame-values frame) (cdr frame))
+
+(define (add-binding-to-frame! var val frame)
+    (set-car! frame (cons (var (car frame))))
+    (set-cdr! frame (cons (var (cdr frame)))))
+
+(define (extend-environment vars vals base-env)
+    (if (= (length vars) (length vals))
+        (cons (make-frame vars vals) base-env)
+        (if (< (length vars) (length vals))
+            (error "Too manyy arguments supplied!" vars vals)
+            (error "Too few arguments supplied!" vars vals))))
+
+(define (lookup-variable-value var env)
+    (define (env-loop env)
+        (define (scan vars vals)
+            (cond ((null? vars)
+                        (env-loop (enclosing-environment env))) ; co-recursive
+                 ((eq? var (car vars)) 
+                    (car vals))
+                (else (scan (cdr vars) (cdr vals)))))
+        (if (eq? env the-empty-environment)
+            (error " Unbound Variable")
+            (let ((frame (first-frame env)))
+                (scan (frame-variables frame)
+                    (frame-values frame)))))
+    (env-loop env))
+
+
+(define (set-variable-value! var val env)
+    (define (env-loop env)
+        (define (scan vars vals)
+            (cond ((null? vars) 
+                        (env-loop (enclosing-environment env)))
+                 ((eq? var (car vars))
+                    (set-car! vals val))
+                (else (scan (cdr vars) (cdr vals)))))
+        (if (eq? env the-empty-environment)
+            (error "Unbound variable -- SET!" var)
+             (let ((frame (first-frame env)))
+                (scan (frame-variables frame)
+                      (frame-values frame)))))
+(env-loop env))
+
+(define (define-variable! var val env)
+    (let ((frame (first-frame env)))
+         (define (scan vars vals)
+                (cond ((null? vars)
+                        (add-binding-to-frame! var val frame))
+                    ((eq? var (car vars))
+                        (set-car! vals val))
+                    (else (scan (cdr vars) (cdr vals)))))
+        (scan (frame-variables frame)
+                (frame-values frame))))
+
+
+; Exercise 4.11
+
+(define (extend-environment2 vars vals base-env)
+    (if (= (length vars) (length vals))
+        (cons (make-frame2 vars vals) base-env)
+        (if (< (length vars) (length vals))
+            (error "Too manyy arguments supplied!" vars vals)
+            (error "Too few arguments supplied!" vars vals))))
+
+(define (make-frame2 vars vals)
+    (if (null? vars)
+        '()
+     (cons (cons (car vars) (car vals)) (make-frame2 (cdr vars) (cdr vals)))))
+
+(define (frame-variables2 frame)
+    (if (null? frame)
+        '()
+        (cons (caar frame) (frame-variables2 (cdr frame)))))
+
+
+(define (frame-values2 frame)
+    (if (null? frame)
+        '()
+        (cons (cdar frame) (frame-values2 (cdr frame)))))
+
+(define (add-binding-to-frame!2 var val frame)
+    (set-cdr! frame (cons (cons var val) (cdr frame))))
+
+; Lookup continues to work, because of how it splits the variables and values.
+
+(define (set-variable-value!2 var val env)
+    (define (env-loop env)
+        (define (scan var-vals)
+            (cond ((null? var-vals) 
+                        (env-loop (enclosing-environment env)))
+                 ((eq? var (caar var-vals))
+                    (set-cdr! (car var-vals) val))
+                (else (scan (cdr var-vals)))))
+        (if (eq? env the-empty-environment)
+            (error "Unbound variable -- SET!" var)
+             (let ((frame (first-frame env)))
+                (scan frame))))
+(env-loop env))
+
+(define (define-variable!2 var val env)
+    (let ((frame (first-frame env)))
+         (define (scan var-vals)
+                (cond ((null? var-vals)
+                        (add-binding-to-frame!2 var val frame))
+                    ((eq? var (caar var-vals))
+                        (set-cdr! (car var-vals) val))
+                    (else (scan (cdr var-vals)))))
+        (scan frame)))
+
+; EXERCISE 4.13
+
+(define (make-unbound! var env)
+    (let ((frame (first-frame env)))
+        (define (scan vars vals)
+            (cond ((null? vars) (error "UNBOUND variable -- unbind" var))
+                  ((eq? var (car vars))
+                    (set-car! vars (cadr vars))
+                    (set-car! vals (cadr vals))
+                    (set-cdr! vars (cddr vars))
+                    (set-cdr! vals (cddr vals))
+                    )
+                (else (scan (cdr vars) (cdr vals)))))
+    (scan (frame-variables frame) (frame-values frame))))
+
+; I would argue that this should only remove the binding from the top level --
+; Any environment could have multiple frames extending it, and the call context
+; of `make-unbound!` won't have the context of other frames who may be relying
+; on those values.
+
+; Eval:
 
 (define (eval-if exp env)
     (if (true? (eval (if-predicate exp) env))
@@ -184,7 +350,6 @@
                          env)
     'ok)    
 
-; Eval:
 
 (define (eval exp env)
     (cond ((self-evaluating? exp) exp)
@@ -209,33 +374,33 @@
 
 ; EXERCISE 4.3 Data-directed Eval:
 
-(define (install-eval-package)
-    (put ('eval 'self-evaluating) (lambda (exp _env) exp))
-    (put ('eval 'variable) lookup-variable-value)
-    (put ('eval 'quoted) (lambda (exp _env) (text-of-quotation exp)))
-    (put ('eval 'assignment) eval-assignment)
-    (put ('eval 'definition) eval-definition)
-    (put ('eval 'if) eval-if)
-    (put ('eval 'lambda) (lambda (exp env) (make-procedure
-                                                (lambda-params exp)
-                                                (lambda-body exp)
-                                                env)))
-    (put ('eval 'begin) (lambda (exp env) (eval-sequence (begin-actions exp) env)))
-    (put ('eval 'cond) (lambda (exp env) (data-directed-eval (cond->if exp) env)))
-    (put ('eval 'call) (lambda (exp env) (apply (data-directed-eval (operator exp) env)
-                                                      (list-of-values (operands exp) env)))))
+; (define (install-eval-package)
+;     (put ('eval 'self-evaluating) (lambda (exp _env) exp))
+;     (put ('eval 'variable) lookup-variable-value)
+;     (put ('eval 'quoted) (lambda (exp _env) (text-of-quotation exp)))
+;     (put ('eval 'assignment) eval-assignment)
+;     (put ('eval 'definition) eval-definition)
+;     (put ('eval 'if) eval-if)
+;     (put ('eval 'lambda) (lambda (exp env) (make-procedure
+;                                                 (lambda-params exp)
+;                                                 (lambda-body exp)
+;                                                 env)))
+;     (put ('eval 'begin) (lambda (exp env) (eval-sequence (begin-actions exp) env)))
+;     (put ('eval 'cond) (lambda (exp env) (data-directed-eval (cond->if exp) env)))
+;     (put ('eval 'call) (lambda (exp env) (apply (data-directed-eval (operator exp) env)
+;                                                       (list-of-values (operands exp) env)))))
 
-(define (get-type exp)
-    (cond ((pair? exp) (car exp))
-          ((or (boolean? exp) (number? exp) (string? exp)) 'self-evaluating)
-          ((symbol? exp) 'variable)
-          (else (error "UNKNOWN type!"))))                                                      
+; (define (get-type exp)
+;     (cond ((pair? exp) (car exp))
+;           ((or (boolean? exp) (number? exp) (string? exp)) 'self-evaluating)
+;           ((symbol? exp) 'variable)
+;           (else (error "UNKNOWN type!"))))                                                      
 
-(define (data-directed-eval exp env)
-    (let ((proc (get 'eval (get-type exp))))
-        (if proc
-        (proc exp env)
-        ((get 'eval 'call) exp env))))
+; (define (data-directed-eval exp env)
+;     (let ((proc (get 'eval (get-type exp))))
+;         (if proc
+;         (proc exp env)
+;         ((get 'eval 'call) exp env))))
 
 ; The other considersations not implemented above are:
 ; 1. any calls to eval in e.g. eval-assignment would still go to normal eval.
@@ -246,19 +411,19 @@
 
 ; Apply:
 
-(define (apply procedure arguments)
-    (cond ((primitive-procedure? procedure) 
-            (apply-primitive-procedure procedure arguments))
-            ((compound-procedure? procedure) 
-            (eval-sequence
-                (procedure-body procedure)
-                (extend-environment
-                    (procedure-paramaters procedure)
-                    arguments
-                 (procedure-environment procedure))))
-    (else 
-        (error 
-        "UNKOWN procedure type -- APPLY" procedure))))
+; (define (apply procedure arguments)
+;     (cond ((primitive-procedure? procedure) 
+;             (apply-primitive-procedure procedure arguments))
+;             ((compound-procedure? procedure) 
+;             (eval-sequence
+;                 (procedure-body procedure)
+;                 (extend-environment
+;                     (procedure-paramaters procedure)
+;                     arguments
+;                  (procedure-environment procedure))))
+;     (else 
+;         (error 
+;         "UNKOWN procedure type -- APPLY" procedure))))
 
 ; Exercise 4.10
 ; I may not go to the trouble of actually implementing it, 
