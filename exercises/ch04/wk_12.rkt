@@ -199,8 +199,8 @@
 (define (frame-values frame) (cdr frame))
 
 (define (add-binding-to-frame! var val frame)
-    (set-car! frame (cons (var (car frame))))
-    (set-cdr! frame (cons (var (cdr frame)))))
+    (set-car! frame (cons var (car frame)))
+    (set-cdr! frame (cons val (cdr frame))))
 
 (define (extend-environment vars vals base-env)
     (if (= (length vars) (length vals))
@@ -218,7 +218,7 @@
                     (car vals))
                 (else (scan (cdr vars) (cdr vals)))))
         (if (eq? env the-empty-environment)
-            (error " Unbound Variable")
+            (error " Unbound Variable" var)
             (let ((frame (first-frame env)))
                 (scan (frame-variables frame)
                     (frame-values frame)))))
@@ -357,7 +357,7 @@
         ((quoted? exp) (text-of-quotation exp))
         ((assignment? exp) (eval-assignment exp env))
         ((definition? exp) (eval-definition exp env))
-        ((if? exp) (eval-if exp))
+        ((if? exp) (eval-if exp env))
         ((lambda? exp)
             (make-procedure (lambda-params exp)
                             (lambda-body exp)
@@ -367,7 +367,7 @@
         ((cond? exp) (eval (cond->if exp) env))
         ((let? exp) (eval (let->combination exp) (let-values (let-definitions exp)) env))
         ((application? exp)
-            (apply (eval (operator exp) env)
+            (apply1 (eval (operator exp) env)
                     (list-of-values (operands exp) env)))
         (else 
         (error "UNKNOWN expression type -- EVAL" exp))))
@@ -411,22 +411,107 @@
 
 ; Apply:
 
-; (define (apply procedure arguments)
-;     (cond ((primitive-procedure? procedure) 
-;             (apply-primitive-procedure procedure arguments))
-;             ((compound-procedure? procedure) 
-;             (eval-sequence
-;                 (procedure-body procedure)
-;                 (extend-environment
-;                     (procedure-paramaters procedure)
-;                     arguments
-;                  (procedure-environment procedure))))
-;     (else 
-;         (error 
-;         "UNKOWN procedure type -- APPLY" procedure))))
+(define apply-in-underlying-scheme apply)
+(define (apply-primitive-procedure proc args)
+    (apply-in-underlying-scheme
+        (primitive-implementiation proc) args))
+
+(define (apply1 procedure arguments)
+    (cond ((primitive-procedure? procedure) 
+            (apply-primitive-procedure procedure arguments))
+            ((compound-procedure? procedure) 
+            (eval-sequence
+                (procedure-body procedure)
+                (extend-environment
+                    (procedure-paramaters procedure)
+                    arguments
+                 (procedure-environment procedure))))
+    (else 
+        (error 
+        "UNKOWN procedure type -- APPLY" procedure))))
 
 ; Exercise 4.10
 ; I may not go to the trouble of actually implementing it, 
 ; but I think an easy example would be changing the order of body and params
 ; for a lambda expression -- just switch the two selectors and rearrange 
 ; how `make-lambda` handles the params and body. Everything else should work fine.
+
+(define primitive-procedures
+    (list (list 'car car)
+          (list 'cdr cdr)
+          (list 'cons cons)
+          (list 'null? null?)
+          (list '+ +)
+          (list '/ /)
+          (list '- -)
+          (list '* *)
+          ))
+
+
+(define (primitive-procedure-objects)
+    (map (lambda (proc) (list 'primitive (cadr proc))) primitive-procedures))
+
+(define (primitive-procedure-names)
+    (map car primitive-procedures))
+
+(define (setup-environment)
+    (let ((initial-env
+            (extend-environment (primitive-procedure-names)
+                                (primitive-procedure-objects)
+                                the-empty-environment)))
+        (define-variable! 'true true initial-env)
+        (define-variable! 'false false initial-env)
+    initial-env))
+
+(define the-global-environment (setup-environment))
+
+(define (primitive-procedure? proc)
+    (tagged-list? proc 'primitive))
+
+(define (primitive-implementiation proc) (cadr proc))
+
+
+
+
+
+; REPL
+
+(define input-prompt ";;; M-EVAL input:")
+(define output-prompt ";;; M-EVAL value:")
+
+(define (driver-loop)
+    (prompt-for-input input-prompt)
+    (let ((input (read)))
+        (let ((output (eval input the-global-environment)))
+            (announce-output output-prompt)
+            (user-print output)))
+    (driver-loop))
+
+(define (prompt-for-input string)
+    (newline) (newline)
+    (display string) (newline))
+
+(define (announce-output string)
+    (newline) (display string) (newline))
+
+(define (user-print object)
+    (if (compound-procedure? object)
+        (display (list 'compound-procedure
+                        (procedure-paramaters object)
+                        (procedure-body object)
+                        '<procedure-env>))
+        (display object)))
+
+(driver-loop)
+
+; Exercise 4.14
+
+; I believe the answer is because of how lambda works -- the primitive map
+; expects a primitive implementation of lambda, but that's not how the lambda expression
+; is evaluated in the metacircular evaluator.
+
+; Exercise 4.15
+; The key here is to notice that (try try) is exactly what `halts?` is testing.
+; So, regardless of what 'halts?` may theorteically return, the call to (try try)
+; will do the opposite, which shows that `halts?` was incorrect.
+
