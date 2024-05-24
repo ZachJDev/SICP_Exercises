@@ -136,7 +136,7 @@
         (cons (cadar definitions) (let-params (cdr definitions)))))
 
 (define (let->combination exp)
-    (make-lambda (let-params (let-definitions exp)) (let-body exp)))
+    (make-lambda (let-params (let-definitions exp)) (list (let-body exp))))
 
 ; EXERCISE 4.7
 ; I think it is sufficent to use derived expressions, 
@@ -210,11 +210,13 @@
             (error "Too few arguments supplied!" vars vals))))
 
 (define (lookup-variable-value var env)
+    (display "looking up ") (display var)
     (define (env-loop env)
         (define (scan vars vals)
             (cond ((null? vars)
                         (env-loop (enclosing-environment env))) ; co-recursive
                  ((eq? var (car vars)) 
+                    (display " found ") (display (car vals)) (newline)
                     (car vals))
                 (else (scan (cdr vars) (cdr vals)))))
         (if (eq? env the-empty-environment)
@@ -351,7 +353,8 @@
     'ok)    
 
 
-(define (eval exp env)
+(define (old-eval exp env)
+    (display "EVALUATING: ") (display exp) (newline)
     (cond ((self-evaluating? exp) exp)
         ((variable? exp) (lookup-variable-value exp env))
         ((quoted? exp) (text-of-quotation exp))
@@ -364,13 +367,144 @@
                             env))
         ((begin? exp)
             (eval-sequence (begin-actions exp) env))
-        ((cond? exp) (eval (cond->if exp) env))
-        ((let? exp) (eval (let->combination exp) (let-values (let-definitions exp)) env))
+        ((cond? exp) (old-eval (cond->if exp) env))
+        ((let? exp) (old-eval (let->combination exp) (let-values (let-definitions exp)) env))
         ((application? exp)
-            (apply1 (eval (operator exp) env)
+            (apply1 (old-eval (operator exp) env)
                     (list-of-values (operands exp) env)))
         (else 
         (error "UNKNOWN expression type -- EVAL" exp))))
+
+(define (analyze-self-evaluating exp)
+    (lambda (env) exp))
+(define (analyze-quoted exp)
+    (let ((qval (text-of-quotation exp)))
+        (lambda (env) qval)))
+
+(define (analyze-variable exp)
+    (lambda (env) (lookup-variable-value exp env)))
+
+(define (analyze-assignment exp)
+    (let ((var (assignment-variable exp))
+          (vproc (analyze (assignment-value exp))))
+          (lambda (env) 
+            (set-variable-value! var (vproc env) env)
+            'ok)))
+
+(define (analyze-definition exp)
+
+    (let ((var (definition-variable exp))
+          (vproc (analyze (definition-value exp))))
+        (lambda (env) 
+            (define-variable! var (vproc env) env)
+            'ok)))
+
+(define (analyze-if exp)
+    (let ((pproc (analyze (if-predicate exp)))
+          (cproc (analyze (if-consequent exp)))
+          (aproc (analyze (if-alternative exp))))
+        (lambda (env) 
+            (if (true? (pproc env))
+              (cproc env)
+              (aproc env)))))
+
+(define (analyze-sequence exps)
+    (define (sequentially proc1 proc2)
+    (display "sequentiallizing...") (newline)
+        (lambda (env) (proc1 env) (proc2 env))) ; this will aways reduce to two procedures at the top level -- even if 'proc1' is itself the result of a call to sequentially.
+    (define (loop first-proc rest-procs)
+        (if (null? rest-procs)
+            first-proc
+            (loop (sequentially first-proc (car rest-procs)) (cdr rest-procs))))
+    (let ((procs (map analyze exps)))
+        (if (null? procs)
+            (error  "EMPTY SEQUENCE! -- ANALYZE"))
+            (loop (car procs) (cdr procs))))
+
+
+; EXERCISE 4.23
+
+(define (analyze-sequence2 exp)
+    (define (execute-sequence procs env)
+        (display "Executing sequence...") (newline)
+        (cond ((null? (cdr procs)) ((car procs) env))
+            (else ((car procs) env)
+                    (execute-sequence (cdr procs) env))))
+    (let ((procs (map analyze exp)))
+        (if (null? procs)
+            (error "EMPTY SEQUENCE! -- ANALYZE"))
+            (lambda (env) (execute-sequence procs env))))
+
+; (map analyze exp) will return an analyzed version of what was passed in. let's compare 
+; how both versions will handle the expression (begin proc1)
+; the second version will reduce to something like (lambda (env) (proc1 env))
+; the first will reduce to (proc1 env). Proc1 will already be in the form (lambda (env) (foo env))
+; given that that is result of (map analyze exp).
+; How about something like (begin proc1 proc2 proc3)?
+; the first version will be (lambda (env) ((lambda (env) (proc1 env) (proc2 env)) env) (proc3 env))
+; the second: (lambda (env) (proc1 env) (proc2 env) (proc3 env))
+; I think makes it pretty clear where the "the expressions in the sequence have been analyzed, but
+; the sequence itself has not been" comes from. But I think I'm missing what the difference is.
+; For more expressions, the calls to "execute-sequence" would be defered until the previous procedure
+; has finished. In the first version, all the calls are ready to go after it's gone through analyze-sequence.
+
+
+(define (analyze-lambda exp)
+    (let ((vars (lambda-params exp))
+          (bproc (analyze-sequence (lambda-body exp))))
+      (lambda (env) (make-procedure vars bproc env))))
+
+(define (analyze-application exp)
+    (let ((fproc (analyze (operator exp)))
+          (aprocs (map analyze (operands exp))))
+        (lambda (env)
+            (execute-application (fproc env)
+                                    (map (lambda (aproc) (aproc env)) aprocs)))))
+
+(define (execute-application proc args)
+(display "EXECUTING PROC: ") (display (car proc)) (newline)
+    (cond ((primitive-procedure? proc)
+           (apply-primitive-procedure proc args))
+          ((compound-procedure? proc)
+          ((procedure-body proc)
+            (extend-environment (procedure-paramaters proc)
+                                args
+                                (procedure-environment proc))))
+        (else (error "UNKNOWN proc type -- EXECUTE-APPLICATION" proc))))
+
+; EXERCISE 4.22
+
+ (define (analyze-let exp)
+    (let ((lproc (analyze-lambda (let->combination exp)))
+          (letvals (map analyze (let-values (let-definitions exp)))))
+        (lambda (env)
+            (execute-application (lproc env) (map (lambda (val) (val env)) letvals)))))
+
+
+(define (analyze exp)
+    (display "ANALYZING: ") (display exp) (newline)
+     (cond ((self-evaluating? exp) (analyze-self-evaluating exp))
+        ((variable? exp) (analyze-variable exp))
+        ((quoted? exp) (analyze-quoted exp))
+        ((assignment? exp) (analyze-assignment exp))
+        ((definition? exp) (analyze-definition exp))
+        ((if? exp) (analyze-if exp))
+        ((lambda? exp) (analyze-lambda exp))
+        ((begin? exp)
+            (analyze-sequence2 (begin-actions exp)))
+        ((cond? exp) (analyze (cond->if exp)))
+        ((let? exp) (analyze-let exp))
+        ((application? exp) (analyze-application exp))
+        (else 
+        (error "UNKNOWN expression type -- EVAL" exp))))
+
+(define (eval exp env)
+    (display "Evaluating ") (display exp) (newline)
+    ((analyze exp) env))
+
+; (define eval old-eval)
+
+
 
 ; EXERCISE 4.3 Data-directed Eval:
 
@@ -417,6 +551,7 @@
         (primitive-implementiation proc) args))
 
 (define (apply1 procedure arguments)
+(display "EXECUTING PROC: ") (display (car procedure)) (newline)
     (cond ((primitive-procedure? procedure) 
             (apply-primitive-procedure procedure arguments))
             ((compound-procedure? procedure) 
@@ -445,6 +580,7 @@
           (list '/ /)
           (list '- -)
           (list '* *)
+          (list '= =)
           ))
 
 
