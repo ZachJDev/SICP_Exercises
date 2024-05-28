@@ -1,5 +1,15 @@
 #lang sicp
 
+; (define DEBUG #t)
+; (define (debug-message  messages) 
+;     (cond ((eq? #f DEBUG) '()) 
+;          ((null? messages)
+;         )
+;         (else (begin
+;             (display (car messages))
+;             (newline)
+;             (debug-message (cdr messages))))))
+
 ; SYNTACTIC DEFINTIONS:
 
 (define (self-evaluating? exp)
