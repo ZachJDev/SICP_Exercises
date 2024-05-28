@@ -220,13 +220,11 @@
             (error "Too few arguments supplied!" vars vals))))
 
 (define (lookup-variable-value var env)
-    (display "looking up ") (display var)
     (define (env-loop env)
         (define (scan vars vals)
             (cond ((null? vars)
                         (env-loop (enclosing-environment env))) ; co-recursive
                  ((eq? var (car vars)) 
-                    (display " found ") (display (car vals)) (newline)
                     (car vals))
                 (else (scan (cdr vars) (cdr vals)))))
         (if (eq? env the-empty-environment)
@@ -266,7 +264,7 @@
 ; Eval:
 
 (define (eval-if exp env)
-    (if (true? (eval (if-predicate exp) env))
+    (if (true? (actual-value (if-predicate exp) env))
         (eval (if-consequent exp) env)
         (eval (if-alternative exp) env)))
 
@@ -289,7 +287,6 @@
 
 
 (define (eval exp env)
-    (display "EVALUATING: ") (display exp) (newline)
     (cond ((self-evaluating? exp) exp)
         ((variable? exp) (lookup-variable-value exp env))
         ((quoted? exp) (text-of-quotation exp))
@@ -305,47 +302,13 @@
         ((cond? exp) (eval (cond->if exp) env))
         ((let? exp) (eval (let->combination exp) (let-values (let-definitions exp)) env))
         ((application? exp)
-            (apply1 (eval (operator exp) env)
-                    (list-of-values (operands exp) env)))
+            (apply1 (actual-value (operator exp) env)
+                     (operands exp) env))
         (else 
         (error "UNKNOWN expression type -- EVAL" exp))))
 
-; EXERCISE 4.3 Data-directed Eval:
-
-; (define (install-eval-package)
-;     (put ('eval 'self-evaluating) (lambda (exp _env) exp))
-;     (put ('eval 'variable) lookup-variable-value)
-;     (put ('eval 'quoted) (lambda (exp _env) (text-of-quotation exp)))
-;     (put ('eval 'assignment) eval-assignment)
-;     (put ('eval 'definition) eval-definition)
-;     (put ('eval 'if) eval-if)
-;     (put ('eval 'lambda) (lambda (exp env) (make-procedure
-;                                                 (lambda-params exp)
-;                                                 (lambda-body exp)
-;                                                 env)))
-;     (put ('eval 'begin) (lambda (exp env) (eval-sequence (begin-actions exp) env)))
-;     (put ('eval 'cond) (lambda (exp env) (data-directed-eval (cond->if exp) env)))
-;     (put ('eval 'call) (lambda (exp env) (apply (data-directed-eval (operator exp) env)
-;                                                       (list-of-values (operands exp) env)))))
-
-; (define (get-type exp)
-;     (cond ((pair? exp) (car exp))
-;           ((or (boolean? exp) (number? exp) (string? exp)) 'self-evaluating)
-;           ((symbol? exp) 'variable)
-;           (else (error "UNKNOWN type!"))))                                                      
-
-; (define (data-directed-eval exp env)
-;     (let ((proc (get 'eval (get-type exp))))
-;         (if proc
-;         (proc exp env)
-;         ((get 'eval 'call) exp env))))
-
-; The other considersations not implemented above are:
-; 1. any calls to eval in e.g. eval-assignment would still go to normal eval.
-; 2. This assumes that there's some mechanism for tagging the data, which I
-; Can only assume moves the `cond` clause somewhere else, unless the language
-; being interpreted somehow includes those type tags when written.
-; help for addressing these concerns thanks to https://mk12.github.io/sicp/index.html
+(define (actual-value exp env)
+  (force-it (eval exp env)))
 
 ; Apply:
 
@@ -354,20 +317,58 @@
     (apply-in-underlying-scheme
         (primitive-implementiation proc) args))
 
-(define (apply1 procedure arguments)
-(display "EXECUTING PROC: ") (display (car procedure)) (newline)
+(define (apply1 procedure arguments env)
     (cond ((primitive-procedure? procedure) 
-            (apply-primitive-procedure procedure arguments))
+            (apply-primitive-procedure procedure (list-of-arg-vals arguments env))) ; If it is a primitive procedure, we want the actual values, so we can apply it.
             ((compound-procedure? procedure) 
-            (eval-sequence
+              (eval-sequence
                 (procedure-body procedure)
                 (extend-environment
                     (procedure-paramaters procedure)
-                    arguments
+                   (list-of-delayed-args arguments env) ; If it is a compound procedure, we create a list of thunks.
                  (procedure-environment procedure))))
     (else 
         (error 
         "UNKOWN procedure type -- APPLY" procedure))))
+
+(define (list-of-arg-vals exps env)
+  (if (no-operands? exps)
+      '()
+      (cons (actual-value (first-operand exps) env)
+            (list-of-arg-vals (rest-operands exps) env))))
+
+(define (list-of-delayed-args exps env)
+  (if (no-operands? exps)
+      '()
+      (cons (delay-it (first-operand exps) env)
+            (list-of-delayed-args (rest-operands exps) env))))
+
+(define (evaluated-thunk? obj)
+  (tagged-list? obj 'evaluated-thunk))
+
+(define (thunk-value evaluated-thunk) (cadr evaluated-thunk))
+
+
+(define (force-it obj)
+  (cond ((thunk? obj)
+      (let ((result
+      (actual-value (thunk-exp obj) (thunk-env obj))))
+        (set-car! obj 'evaluated-thunk)
+        (set-car! (cdr obj) result)
+        (set-cdr! (cdr obj) '())
+        result))
+        ((evaluated-thunk? obj) (thunk-value obj))
+        (else obj)))
+
+(define (delay-it exp env)
+  (list 'thunk exp env))
+
+(define (thunk? obj)
+  (tagged-list? obj 'thunk))
+
+(define (thunk-exp obj)
+  (cadr obj))
+(define (thunk-env obj) (caddr obj))
 
 (define primitive-procedures
     (list (list 'car car)
@@ -404,19 +405,15 @@
 
 (define (primitive-implementiation proc) (cadr proc))
 
-
-
-
-
 ; REPL
 
-(define input-prompt ";;; M-EVAL input:")
-(define output-prompt ";;; M-EVAL value:")
+(define input-prompt ";;; L-EVAL input:")
+(define output-prompt ";;; L-EVAL value:")
 
 (define (driver-loop)
     (prompt-for-input input-prompt)
     (let ((input (read)))
-        (let ((output (eval input the-global-environment)))
+        (let ((output (actual-value input the-global-environment)))
             (announce-output output-prompt)
             (user-print output)))
     (driver-loop))
@@ -438,3 +435,23 @@
 
 (driver-loop)
 
+; Exercise 4.27
+
+; count -> 0 ; Nothing has changed it (id has not been called because w is currently ('thunk...)),
+             ; and it is a definition, no application is happening.
+
+
+; count above was incorrect according to my tests -- it was actually 1. Why?
+  ; What I missed was that the outside call's to  (id ...) was computing as part of (eval-sequence) inside of
+  ; (eval-definition). So count is incremented as part of that outside call, and, until we call w,
+  ; w's value is ('thunk (id 10) <some-env>). only when we call w does (driver-loop) ask for it's (actual-value),
+  ; and we finally evaluate the initial call to (id 10).
+  ; we can test this by instead defining w as (id1 (id2 10)), where id1 and increment count by 1 and 2, respectively.
+  ; after defining w, count is 1, and after calling it, count is 3.
+
+
+; w -> 10 ; (id 10) will return 10, so the outer call to (id (id 10)) will reduce to (id 10).
+
+; count -> 2 ; a thunk is not memoizing a proc call with specific arguments, but rather a specific call. So
+             ; if two calls to the same proc are made with the same arguments, it will still be treated as two
+             ; separate objects.
