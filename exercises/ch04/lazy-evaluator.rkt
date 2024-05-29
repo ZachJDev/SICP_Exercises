@@ -1,14 +1,14 @@
 #lang sicp
 
-; (define DEBUG #t)
-; (define (debug-message  messages) 
-;     (cond ((eq? #f DEBUG) '()) 
-;          ((null? messages)
-;         )
-;         (else (begin
-;             (display (car messages))
-;             (newline)
-;             (debug-message (cdr messages))))))
+ (define DEBUG #t)
+ (define (debug-message  messages) 
+     (cond ((eq? #f DEBUG) '()) 
+          ((null? messages)
+           )
+         (else (begin
+             (display (car messages))
+             (newline)
+             (debug-message (cdr messages))))))
 
 ; SYNTACTIC DEFINTIONS:
 
@@ -301,8 +301,8 @@
             (eval-sequence (begin-actions exp) env))
         ((cond? exp) (eval (cond->if exp) env))
         ((let? exp) (eval (let->combination exp) (let-values (let-definitions exp)) env))
-        ((application? exp)
-            (apply1 (actual-value (operator exp) env)
+        ((application? exp) (debug-message (list "applying" (operator exp)))
+            (apply1 (eval (operator exp) env)
                      (operands exp) env))
         (else 
         (error "UNKNOWN expression type -- EVAL" exp))))
@@ -320,7 +320,7 @@
 (define (apply1 procedure arguments env)
     (cond ((primitive-procedure? procedure) 
             (apply-primitive-procedure procedure (list-of-arg-vals arguments env))) ; If it is a primitive procedure, we want the actual values, so we can apply it.
-            ((compound-procedure? procedure) 
+            ((compound-procedure? procedure) (debug-message (list "compound proc" (cadr procedure)))
               (eval-sequence
                 (procedure-body procedure)
                 (extend-environment
@@ -380,6 +380,10 @@
           (list '- -)
           (list '* *)
           (list '= =)
+          (list 'and (lambda (x y) (and x y)))
+          (list 'not not)
+          (list 'or (lambda (x y) (or x y)))
+          (list 'thunk? (lambda (x) (tagged-list? x 'thunk)))
           ))
 
 
@@ -455,3 +459,18 @@
 ; count -> 2 ; a thunk is not memoizing a proc call with specific arguments, but rather a specific call. So
              ; if two calls to the same proc are made with the same arguments, it will still be treated as two
              ; separate objects.
+
+
+; Exercuse 4.28
+
+; (define (inc-or-ident pred)
+ ; (if pred (lambda (x) (+ x 1)) (lambda (x) x)))
+
+; (define (x f g) (if true f g))
+
+; ((x (inc-or-ident true) (inc-or-ident false)) 12)
+
+; Given the above definitions, an error will be thrown when the evaluator attempts to APPLY a thunk.
+; This happens beecause the arguments to x are thunked when x is evaluated, and then, without the call to actual-value,
+; the evaluator attempts to call (f), but in this case, f is a thunk.
+
